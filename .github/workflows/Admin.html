@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Miknox Admin Panel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    header {
+      background: #222;
+      color: white;
+      padding: 15px 20px;
+      text-align: center;
+      font-size: 24px;
+    }
+    main {
+      max-width: 800px;
+      margin: 30px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h2 {
+      border-bottom: 2px solid #eee;
+      padding-bottom: 6px;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    label {
+      display: block;
+      margin: 10px 0 4px;
+    }
+    input[type="email"], input[type="number"], input[type="password"], input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #006400;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #004d00;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+
+<header>Miknox Admin Panel</header>
+<main>
+
+  <div class="section">
+    <h2>Admin Login</h2>
+    <input type="password" id="adminPassInput" placeholder="Enter admin password">
+    <button onclick="loginAdmin()">Login</button>
+  </div>
+
+  <div id="adminPanel" style="display:none">
+
+    <div class="section">
+      <h2>Edit User Balance</h2>
+      <label>User Email</label>
+      <input type="email" id="userEmail">
+      <label>New Balance</label>
+      <input type="number" id="newBalance">
+      <button onclick="updateBalance()">Update Balance</button>
+    </div>
+
+    <div class="section">
+      <h2>Delete User</h2>
+      <label>User Email</label>
+      <input type="email" id="deleteEmail">
+      <button onclick="deleteUser()">Delete User</button>
+    </div>
+
+    <div class="section">
+      <h2>Change Admin Password</h2>
+      <label>New Password</label>
+      <input type="password" id="newAdminPassword">
+      <button onclick="changeAdminPassword()">Change Password</button>
+    </div>
+
+    <div class="section">
+      <h2>Manage Active Holds</h2>
+      <table>
+        <thead>
+          <tr><th>MX ID</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody id="activeHoldsTable"></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Generated MX IDs</h2>
+      <table>
+        <thead>
+          <tr><th>MX ID</th><th>Action</th></tr>
+        </thead>
+        <tbody id="generatedMXTable"></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>User List</h2>
+      <table>
+        <thead>
+          <tr><th>Email</th><th>Balance</th><th>Password</th></tr>
+        </thead>
+        <tbody id="userTableBody"></tbody>
+      </table>
+    </div>
+
+    <button style="background: #b91c1c;" onclick="logoutAdmin()">Logout</button>
+  </div>
+
+</main>
+
+<script>
+  const defaultAdminPassword = localStorage.getItem('miknox_admin_password') || 'admin123';
+
+  function loginAdmin() {
+    const input = document.getElementById('adminPassInput').value;
+    if (input === defaultAdminPassword) {
+      document.getElementById('adminPanel').style.display = 'block';
+      loadUserTable();
+      loadActiveHolds();
+      loadGeneratedMXIDs();
+    } else {
+      alert('Incorrect password');
+    }
+  }
+
+  function updateBalance() {
+    const email = document.getElementById('userEmail').value;
+    const newBal = parseFloat(document.getElementById('newBalance').value);
+    if (email && !isNaN(newBal)) {
+      localStorage.setItem(`wallet_${email}`, newBal.toFixed(2));
+      alert('Balance updated.');
+      loadUserTable();
+    }
+  }
+
+  function deleteUser() {
+    const email = document.getElementById('deleteEmail').value;
+    if (email) {
+      localStorage.removeItem(`wallet_${email}`);
+      localStorage.removeItem(`password_${email}`);
+      alert('User deleted.');
+      loadUserTable();
+    }
+  }
+
+  function changeAdminPassword() {
+    const newPass = document.getElementById('newAdminPassword').value;
+    if (newPass.length < 4) {
+      alert('Password too short.');
+      return;
+    }
+    localStorage.setItem('miknox_admin_password', newPass);
+    alert('Admin password updated.');
+  }
+
+  function loadUserTable() {
+    const tbody = document.getElementById('userTableBody');
+    tbody.innerHTML = '';
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("wallet_")) {
+        const email = key.replace("wallet_", "");
+        const bal = localStorage.getItem(key);
+        const pass = localStorage.getItem(`password_${email}`) || '(not set)';
+        const row = `<tr><td>${email}</td><td>${bal}</td><td>${pass}</td></tr>`;
+        tbody.innerHTML += row;
+      }
+    });
+  }
+
+  function loadActiveHolds() {
+    const tbody = document.getElementById('activeHoldsTable');
+    tbody.innerHTML = '';
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("active_hold_")) {
+        const mxID = key.replace("active_hold_", "");
+        const status = localStorage.getItem(key) === 'true' ? 'Active' : 'Inactive';
+        const row = `<tr><td>${mxID}</td><td>${status}</td><td><button onclick="toggleHold('${mxID}')">${status === 'Active' ? 'Deactivate' : 'Activate'}</button></td></tr>`;
+        tbody.innerHTML += row;
+      }
+    });
+  }
+
+  function toggleHold(mxID) {
+    const currentStatus = localStorage.getItem(`active_hold_${mxID}`);
+    const newStatus = currentStatus === 'true' ? 'false' : 'true';
+    localStorage.setItem(`active_hold_${mxID}`, newStatus);
+    loadActiveHolds();
+  }
+
+  function loadGeneratedMXIDs() {
+    const tbody = document.getElementById('generatedMXTable');
+    tbody.innerHTML = '';
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("mx_id_")) {
+        const mxID = key.replace("mx_id_", "");
+        const row = `<tr><td>${mxID}</td><td><button onclick="deleteMXID('${mxID}')">Delete</button></td></tr>`;
+        tbody.innerHTML += row;
+      }
+    });
+  }
+
+  function deleteMXID(mxID) {
+    localStorage.removeItem(`mx_id_${mxID}`);
+    loadGeneratedMXIDs();
+  }
+
+  function logoutAdmin() {
+    location.reload();
+  }
+
+  window.onload = function() {
+    // No auto-show panel on load
+  }
+</script>
+
+</body>
+</html>
